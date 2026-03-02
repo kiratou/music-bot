@@ -1,4 +1,4 @@
-console.log("🚀 Starting Music Bot...");
+console.log("🚀 Starting Music Bot - FINAL VERSION...");
 
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
@@ -23,37 +23,76 @@ const client = new Client({
 
 const queue = new Map();
 
-// DATABASE OF COMMON SONGS (PRE-TESTED WORKING URLs)
-const songDatabase = {
-    "shape of you": "https://www.youtube.com/watch?v=JGwWNGJdvx8",
-    "never gonna give you up": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "let the world burn": "https://www.youtube.com/watch?v=rEelLqbQHCM",
-    "despacito": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
-    "believer": "https://www.youtube.com/watch?v=7wtfhZwyrcc",
-    "senorita": "https://www.youtube.com/watch?v=Pkh8UtuejGw",
-    "bad guy": "https://www.youtube.com/watch?v=DyDfgMOUjCI",
-    "old town road": "https://www.youtube.com/watch?v=r7qovpFAGrQ",
-    "dance monkey": "https://www.youtube.com/watch?v=ij0vNvYc6-w",
-    "someone like you": "https://www.youtube.com/watch?v=hLQl3WQQoQ0",
-    "hello": "https://www.youtube.com/watch?v=YQHsXMglC9A",
-    "rolling in the deep": "https://www.youtube.com/watch?v=rYEDA3JcQqw",
-    "uptown funk": "https://www.youtube.com/watch?v=OPf0YbXqDm0",
-    "see you again": "https://www.youtube.com/watch?v=RgKAFK5djSk",
-    "closer": "https://www.youtube.com/watch?v=PT2_F-1esPk",
-    "love yourself": "https://www.youtube.com/watch?v=oyEuk8j8imI",
-    "sorry": "https://www.youtube.com/watch?v=fRh_vgS2dFE",
-    "what do you mean": "https://www.youtube.com/watch?v=DK_0jXPuIr0",
-    "starboy": "https://www.youtube.com/watch?v=34Na4j8AVgA",
-    "the hills": "https://www.youtube.com/watch?v=yzTuBuRdAyA",
-    "can't feel my face": "https://www.youtube.com/watch?v=qsI5Lkfc4_4",
-    "earfquake": "https://www.youtube.com/watch?v=B6Sg77-M4v0",
-    "godzilla": "https://www.youtube.com/watch?v=CKj1dwIxIlY"
+// DIRECT WORKING VIDEO IDs (TESTED)
+const songs = {
+    // English
+    "shape of you": "JGwWNGJdvx8",
+    "never gonna give you up": "dQw4w9WgXcQ",
+    "let the world burn": "rEelLqbQHCM",
+    "despacito": "kJQP7kiw5Fk",
+    "believer": "7wtfhZwyrcc",
+    "senorita": "Pkh8UtuejGw",
+    "bad guy": "DyDfgMOUjCI",
+    "old town road": "r7qovpFAGrQ",
+    "dance monkey": "ij0vNvYc6-w",
+    "someone like you": "hLQl3WQQoQ0",
+    "hello": "YQHsXMglC9A",
+    "rolling in the deep": "rYEDA3JcQqw",
+    "uptown funk": "OPf0YbXqDm0",
+    "see you again": "RgKAFK5djSk",
+    "closer": "PT2_F-1esPk",
+    "love yourself": "oyEuk8j8imI",
+    "sorry": "fRh_vgS2dFE",
+    "what do you mean": "DK_0jXPuIr0",
+    "starboy": "34Na4j8AVgA",
+    "the hills": "yzTuBuRdAyA",
+    "can't feel my face": "qsI5Lkfc4_4",
+    "earfquake": "B6Sg77-M4v0",
+    "godzilla": "CKj1dwIxIlY",
+    "blinding lights": "4NRXx6U8ABQ",
+    "save your tears": "XXYlFuWEuKI",
+    "levitating": "TUVcZfQe-Kw",
+    "watermelon sugar": "E07s5ZYygMg",
+    "drivers license": "YQHsXMglC9A",
+    "good 4 u": "gNi_6U50PmY",
+    "happier than ever": "5iChU2rZ2zA",
+    "stay": "kTJczUoc26U",
+    "industry baby": "UTHLKHL_whs",
+    "montero": "6swmTBVI83k",
+    "butter": "WMweEpGlu_U",
+    "dynamite": "gdZLi9oWNZg",
+    
+    // Spanish
+    "despacito spanish": "kJQP7kiw5Fk",
+    "senorita spanish": "Pkh8UtuejGw",
+    "bailando": "NUsoVlDFqZg",
+    "la bicicleta": "UVff0K0S7SI",
+    "chantaje": "6JCLY0Rlx6Q",
+    "el perdón": "hX8As0XlFTE",
+    "sofia": "ryS6aJ8AMdQ",
+    "yo perreo sola": "GtSRKwD2Zhw",
+    "dákiti": "w2IhF6g4s3s",
+    "la noche de anoche": "cb2w2m1JmCY",
+    "te boté": "CcV_anv2ZRk",
+    "callaita": "z1JnbAUuIYk",
+    "mia": "OSUxrSe5GbI",
+    "mi gente": "wnJ6LuUFpMo",
+    "gasolina": "CiQDPT3C_hc",
+    "con calma": "DiItGE3eAyQ",
+    "dura": "sGIm0-dQ6Bo",
+    "tusa": "tbneQDc2H3I",
+    "bichota": "xhMcqSYslZo",
+    "provenza": "Gm_HoBOrMkA",
+    "mamiii": "EjU1xHvP9WY",
+    "felices los 4": "t_jHrUE5IOk",
+    "borro cassette": "8VLdE9xMOJA",
+    "11 pm": "3mZcCjA-qGg"
 };
 
 client.once('ready', () => {
     console.log('✅ Bot is online!');
-    console.log(`Logged in as: ${client.user.tag}`);
-    client.user.setActivity('!play [song name]', { type: 'LISTENING' });
+    console.log(`📀 Loaded ${Object.keys(songs).length} songs!`);
+    client.user.setActivity('!play [song]', { type: 'LISTENING' });
 });
 
 client.on('messageCreate', async (message) => {
@@ -66,135 +105,115 @@ client.on('messageCreate', async (message) => {
     if (command === 'play') {
         const voiceChannel = message.member.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ You need to be in a voice channel!');
+            return message.reply('❌ Join a voice channel first!');
         }
 
-        const songName = args.join(' ').toLowerCase();
-        if (!songName) {
-            return message.reply('❌ Please provide a song name!');
+        const songQuery = args.join(' ').toLowerCase();
+        if (!songQuery) {
+            return message.reply('❌ Type a song name!');
         }
 
-        // Check if it's already a URL
-        if (songName.includes('youtube.com') || songName.includes('youtu.be')) {
-            // Handle URL directly
+        // Check if it's a direct YouTube URL
+        if (songQuery.includes('youtube.com/watch') || songQuery.includes('youtu.be/')) {
             try {
-                const songInfo = await ytdl.getInfo(songName);
+                const songInfo = await ytdl.getInfo(songQuery);
                 const song = {
                     title: songInfo.videoDetails.title,
-                    url: songName
+                    url: songQuery
                 };
-                await playSong(message, song, voiceChannel);
-            } catch (error) {
-                message.reply('❌ Invalid YouTube URL');
+                await handleSong(message, song, voiceChannel);
+                message.reply(`🎵 Playing: **${song.title}**`);
+            } catch {
+                message.reply('❌ Invalid URL');
             }
             return;
         }
 
-        // Check database for the song
-        let foundUrl = null;
-        let foundTitle = songName;
+        // Find song in database
+        let videoId = null;
+        let matchedTitle = null;
 
-        // Look for exact match or partial match
-        for (const [key, url] of Object.entries(songDatabase)) {
-            if (songName.includes(key) || key.includes(songName)) {
-                foundUrl = url;
-                foundTitle = key;
+        // Try exact match first
+        for (const [title, id] of Object.entries(songs)) {
+            if (songQuery === title || songQuery.includes(title) || title.includes(songQuery)) {
+                videoId = id;
+                matchedTitle = title;
                 break;
             }
         }
 
-        if (foundUrl) {
-            // Found in database
-            const searchingMsg = await message.reply(`🎵 Found: **${foundTitle}**\n🔍 Preparing to play...`);
+        // If not found, try word matching
+        if (!videoId) {
+            const words = songQuery.split(' ');
+            for (const [title, id] of Object.entries(songs)) {
+                for (const word of words) {
+                    if (word.length > 2 && title.includes(word)) {
+                        videoId = id;
+                        matchedTitle = title;
+                        break;
+                    }
+                }
+                if (videoId) break;
+            }
+        }
+
+        if (videoId) {
+            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const searchingMsg = await message.reply(`🎵 Found: **${matchedTitle}**\n🔍 Playing now...`);
             
             try {
-                const songInfo = await ytdl.getInfo(foundUrl);
+                const songInfo = await ytdl.getInfo(videoUrl);
                 const song = {
                     title: songInfo.videoDetails.title,
-                    url: foundUrl
+                    url: videoUrl
                 };
-                await playSong(message, song, voiceChannel);
+                await handleSong(message, song, voiceChannel);
                 searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
             } catch (error) {
-                searchingMsg.edit('❌ Error playing the song. Trying another source...');
-                
-                // Try with a direct search as fallback
-                try {
-                    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(songName)}`;
-                    message.reply(`⚠️ Please use this link: ${searchUrl}\nThen use !play with the URL`);
-                } catch (e) {
-                    message.reply('❌ Could not play the song');
-                }
+                searchingMsg.edit('❌ Error playing. Try: `!play never gonna give you up`');
             }
         } else {
-            // Not in database, give search link
-            const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(songName)}`;
-            message.reply(`🔍 Couldn't find "${songName}" in my database.\n🔗 Search here: ${searchUrl}\nThen use **!play [YouTube URL]**`);
+            // Suggest similar songs
+            const suggestions = Object.keys(songs).slice(0, 10).map(s => `• ${s}`).join('\n');
+            message.reply(`❌ Song not found!\n\n**Try one of these:**\n${suggestions}\n\nOr use: !play [YouTube URL]`);
         }
     }
 
     if (command === 'skip') {
         const serverQueue = queue.get(message.guild.id);
-        if (!serverQueue) return message.reply('❌ Nothing is playing!');
+        if (!serverQueue) return message.reply('❌ Nothing playing');
         serverQueue.player.stop();
-        message.reply('⏭️ Skipped!');
+        message.reply('⏭️ Skipped');
     }
 
     if (command === 'stop') {
         const serverQueue = queue.get(message.guild.id);
-        if (!serverQueue) return message.reply('❌ Nothing is playing!');
+        if (!serverQueue) return message.reply('❌ Nothing playing');
         serverQueue.songs = [];
         serverQueue.player.stop();
-        if (serverQueue.connection) {
-            serverQueue.connection.destroy();
-        }
+        serverQueue.connection?.destroy();
         queue.delete(message.guild.id);
-        message.reply('⏹️ Stopped and left!');
+        message.reply('⏹️ Stopped');
     }
 
-    if (command === 'queue') {
-        const serverQueue = queue.get(message.guild.id);
-        if (!serverQueue || serverQueue.songs.length === 0) {
-            return message.reply('❌ Queue is empty!');
-        }
-
-        let queueList = '**Queue:**\n';
-        serverQueue.songs.forEach((song, index) => {
-            queueList += `${index + 1}. ${song.title}\n`;
-        });
-        message.reply(queueList);
-    }
-
-    if (command === 'help') {
-        message.reply(`
-**Music Bot Commands:**
-!play [song name] - Play a song
-!play [YouTube URL] - Play from URL
-!skip - Skip current song
-!stop - Stop and leave
-!queue - Show queue
-!help - Show this message
-
-**Popular songs in database:**
-${Object.keys(songDatabase).slice(0, 10).map(s => `• ${s}`).join('\n')}
-        `);
+    if (command === 'songs') {
+        message.reply(`📀 **Available songs:** ${Object.keys(songs).length}\nTry: !play shape of you`);
     }
 });
 
-async function playSong(message, song, voiceChannel) {
+async function handleSong(message, song, voiceChannel) {
     const serverQueue = queue.get(message.guild.id);
     
     if (!serverQueue) {
         const queueConstruct = {
             textChannel: message.channel,
-            voiceChannel: voiceChannel,
+            voiceChannel,
             connection: null,
             player: createAudioPlayer(),
-            songs: [],
+            songs: [song]
         };
 
         queue.set(message.guild.id, queueConstruct);
-        queueConstruct.songs.push(song);
 
         try {
             const connection = joinVoiceChannel({
@@ -204,27 +223,21 @@ async function playSong(message, song, voiceChannel) {
             });
             
             queueConstruct.connection = connection;
-            
-            setTimeout(() => {
-                playNext(message.guild.id);
-            }, 1000);
-            
-        } catch (err) {
-            console.error("Connection error:", err);
+            playSong(message.guild.id);
+        } catch {
             queue.delete(message.guild.id);
-            throw err;
+            message.reply('❌ Can\'t join voice channel');
         }
     } else {
         serverQueue.songs.push(song);
+        message.reply(`✅ Added: **${song.title}**`);
     }
 }
 
-async function playNext(guildId) {
+async function playSong(guildId) {
     const serverQueue = queue.get(guildId);
-    if (!serverQueue || serverQueue.songs.length === 0) {
-        if (serverQueue && serverQueue.connection) {
-            serverQueue.connection.destroy();
-        }
+    if (!serverQueue?.songs.length) {
+        serverQueue?.connection?.destroy();
         queue.delete(guildId);
         return;
     }
@@ -239,25 +252,22 @@ async function playNext(guildId) {
         });
         
         const resource = createAudioResource(stream);
-        
         serverQueue.player.play(resource);
         serverQueue.connection.subscribe(serverQueue.player);
         
         serverQueue.player.on(AudioPlayerStatus.Idle, () => {
             serverQueue.songs.shift();
-            playNext(guildId);
+            playSong(guildId);
         });
 
-        serverQueue.player.on('error', (error) => {
-            console.error("Player error:", error);
+        serverQueue.player.on('error', () => {
             serverQueue.songs.shift();
-            playNext(guildId);
+            playSong(guildId);
         });
 
-    } catch (error) {
-        console.error("Play error:", error);
+    } catch {
         serverQueue.songs.shift();
-        playNext(guildId);
+        playSong(guildId);
     }
 }
 

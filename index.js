@@ -92,7 +92,15 @@ client.on('messageCreate', async (message) => {
             }
 
             // Get video info
-            const songInfo = await ytdl.getInfo(videoUrl);
+            const songInfo = await ytdl.getInfo(videoUrl, {
+                requestOptions: {
+                    headers: {
+                        cookie: 'YSC=wBQ9qX8qY6w; PREF=f1=50000000&gl=US&hl=en',
+                        'x-youtube-identity-token': 'QUFFLUhqbWg2bjFtYkJ1Z1lXdkJxQ1JjZ2FvNnN0Z0J1Zz0='
+                    }
+                }
+            });
+            
             const song = {
                 title: songInfo.videoDetails.title,
                 url: videoUrl
@@ -120,10 +128,15 @@ client.on('messageCreate', async (message) => {
                     });
                     
                     queueConstruct.connection = connection;
-                    playSong(message.guild.id, queueConstruct.songs[0]);
+                    
+                    // Small delay to ensure connection is ready
+                    setTimeout(() => {
+                        playSong(message.guild.id, queueConstruct.songs[0]);
+                    }, 1000);
                     
                     searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
                 } catch (err) {
+                    console.error("Connection error:", err);
                     queue.delete(message.guild.id);
                     return searchingMsg.edit('❌ Error joining voice channel!');
                 }
@@ -132,8 +145,8 @@ client.on('messageCreate', async (message) => {
                 return searchingMsg.edit(`✅ **${song.title}** added to queue!`);
             }
         } catch (error) {
-            console.error(error);
-            message.reply('❌ Error playing song! Try again.');
+            console.error("Play error:", error);
+            searchingMsg.edit('❌ Error playing song! Try again with a different song.');
         }
     }
 
@@ -151,7 +164,9 @@ client.on('messageCreate', async (message) => {
         if (!serverQueue) return message.reply('❌ Nothing is playing!');
         serverQueue.songs = [];
         serverQueue.player.stop();
-        serverQueue.connection.destroy();
+        if (serverQueue.connection) {
+            serverQueue.connection.destroy();
+        }
         queue.delete(message.guild.id);
         message.reply('⏹️ Stopped and left!');
     }
@@ -174,7 +189,7 @@ client.on('messageCreate', async (message) => {
     if (command === 'help') {
         message.reply(`
 **Music Bot Commands:**
-!play [song name] - Play a song (just type the name!)
+!play [song name] - Play a song
 !skip - Skip current song
 !stop - Stop and leave
 !queue - Show queue
@@ -183,7 +198,6 @@ client.on('messageCreate', async (message) => {
 Examples:
 !play shape of you
 !play never gonna give you up
-!play https://youtu.be/... (URLs also work)
         `);
     }
 });
@@ -199,32 +213,42 @@ async function playSong(guildId, song) {
     }
 
     try {
-        const stream = ytdl(song.url, { 
+        // Create stream with more compatible options
+        const stream = ytdl(song.url, {
             filter: 'audioonly',
-            quality: 'lowestaudio'
+            quality: 'lowestaudio',
+            highWaterMark: 1 << 25,
+            requestOptions: {
+                headers: {
+                    cookie: 'YSC=wBQ9qX8qY6w; PREF=f1=50000000&gl=US&hl=en',
+                    'x-youtube-identity-token': 'QUFFLUhqbWg2bjFtYkJ1Z1lXdkJxQ1JjZ2FvNnN0Z0J1Zz0='
+                }
+            }
         });
+        
         const resource = createAudioResource(stream);
         
         serverQueue.player.play(resource);
         serverQueue.connection.subscribe(serverQueue.player);
         
         serverQueue.player.on(AudioPlayerStatus.Playing, () => {
-            serverQueue.textChannel.send(`🎵 Now playing: **${song.title}**`);
+            console.log(`Playing: ${song.title}`);
         });
 
         serverQueue.player.on(AudioPlayerStatus.Idle, () => {
+            console.log("Song ended, playing next...");
             serverQueue.songs.shift();
             playSong(guildId, serverQueue.songs[0]);
         });
 
         serverQueue.player.on('error', error => {
-            console.error(error);
+            console.error("Player error:", error);
             serverQueue.songs.shift();
             playSong(guildId, serverQueue.songs[0]);
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("PlaySong error:", error);
         serverQueue.songs.shift();
         playSong(guildId, serverQueue.songs[0]);
     }

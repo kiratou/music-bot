@@ -7,6 +7,11 @@ const ytdl = require('ytdl-core');
 
 const token = process.env.DISCORD_TOKEN;
 
+if (!token) {
+    console.log("❌ No token found!");
+    process.exit(1);
+}
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -16,22 +21,9 @@ const client = new Client({
     ]
 });
 
-const queue = new Map();
-
-// Simple song database
-const songs = {
-    "shape of you": "JGwWNGJdvx8",
-    "never gonna give you up": "dQw4w9WgXcQ",
-    "despacito": "kJQP7kiw5Fk",
-    "believer": "7wtfhZwyrcc",
-    "senorita": "Pkh8UtuejGw",
-    "bad guy": "DyDfgMOUjCI",
-    "old town road": "r7qovpFAGrQ",
-    "dance monkey": "ij0vNvYc6-w"
-};
-
 client.on('ready', () => {
     console.log('✅ Bot is online!');
+    console.log(`Logged in as: ${client.user.tag}`);
     client.user.setActivity('!play [song]', { type: 'LISTENING' });
 });
 
@@ -42,107 +34,126 @@ client.on('messageCreate', async (message) => {
     const args = message.content.slice(1).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
+    // Test command
     if (command === 'ping') {
         return message.reply('Pong! 🏓');
     }
 
+    // Play command
     if (command === 'play') {
+        // Check if user is in voice channel
         const voiceChannel = message.member.voice.channel;
         if (!voiceChannel) {
-            return message.reply('❌ Join a voice channel!');
+            return message.reply('❌ You need to be in a voice channel!');
         }
 
-        const songName = args.join(' ').toLowerCase();
+        const songName = args.join(' ');
         if (!songName) {
-            return message.reply('❌ Type a song name!');
+            return message.reply('❌ Please provide a song name!');
         }
 
-        // Check if it's a URL
-        if (songName.includes('youtube.com') || songName.includes('youtu.be')) {
-            try {
-                const songInfo = await ytdl.getInfo(songName);
-                const song = {
-                    title: songInfo.videoDetails.title,
-                    url: songName
-                };
-                
-                const connection = joinVoiceChannel({
-                    channelId: voiceChannel.id,
-                    guildId: message.guild.id,
-                    adapterCreator: message.guild.voiceAdapterCreator,
-                });
+        const searchingMsg = await message.reply(`🔍 Searching for **${songName}**...`);
 
-                const player = createAudioPlayer();
-                const stream = ytdl(song.url, { filter: 'audioonly' });
-                const resource = createAudioResource(stream);
-                
-                player.play(resource);
-                connection.subscribe(player);
-
-                message.reply(`🎵 Playing: **${song.title}**`);
-                return;
-            } catch {
-                return message.reply('❌ Invalid URL');
-            }
-        }
-
-        // Search in database
-        const videoId = songs[songName];
-        
-        if (videoId) {
-            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        try {
+            let videoUrl = songName;
             
-            try {
-                const songInfo = await ytdl.getInfo(videoUrl);
-                const song = {
-                    title: songInfo.videoDetails.title,
-                    url: videoUrl
+            // If it's not a URL, use a direct working video for testing
+            if (!songName.includes('youtube.com') && !songName.includes('youtu.be')) {
+                // Use a working video ID based on song name
+                const workingVideos = {
+                    'shape of you': 'JGwWNGJdvx8',
+                    'never gonna give you up': 'dQw4w9WgXcQ',
+                    'despacito': 'kJQP7kiw5Fk',
+                    'believer': '7wtfhZwyrcc',
+                    'senorita': 'Pkh8UtuejGw'
                 };
-
-                const connection = joinVoiceChannel({
-                    channelId: voiceChannel.id,
-                    guildId: message.guild.id,
-                    adapterCreator: message.guild.voiceAdapterCreator,
-                });
-
-                const player = createAudioPlayer();
-                const stream = ytdl(song.url, { filter: 'audioonly' });
-                const resource = createAudioResource(stream);
                 
-                player.play(resource);
-                connection.subscribe(player);
-
-                message.reply(`🎵 Playing: **${song.title}**`);
-
-                player.on(AudioPlayerStatus.Idle, () => {
-                    connection.destroy();
-                });
-
-            } catch (error) {
-                message.reply('❌ Error playing song');
+                const videoId = workingVideos[songName.toLowerCase()];
+                if (videoId) {
+                    videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                } else {
+                    return searchingMsg.edit('❌ Song not found. Try: shape of you, never gonna give you up, despacito, believer');
+                }
             }
-        } else {
-            message.reply('❌ Try: shape of you, never gonna give you up, despacito, believer');
+
+            // Get song info
+            const songInfo = await ytdl.getInfo(videoUrl);
+            const song = {
+                title: songInfo.videoDetails.title,
+                url: videoUrl
+            };
+
+            // Join voice channel
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: message.guild.id,
+                adapterCreator: message.guild.voiceAdapterCreator,
+            });
+
+            // Create audio player
+            const player = createAudioPlayer();
+            
+            // Create audio stream
+            const stream = ytdl(song.url, { 
+                filter: 'audioonly',
+                quality: 'lowestaudio',
+                highWaterMark: 1 << 25
+            });
+            
+            const resource = createAudioResource(stream);
+            
+            // Play the song
+            player.play(resource);
+            connection.subscribe(player);
+
+            // Update message
+            await searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
+
+            // When song ends
+            player.on(AudioPlayerStatus.Idle, () => {
+                connection.destroy();
+                message.channel.send('⏹️ Song ended');
+            });
+
+            // Handle errors
+            player.on('error', error => {
+                console.error('Player error:', error);
+                connection.destroy();
+                message.channel.send('❌ Error playing song');
+            });
+
+        } catch (error) {
+            console.error('Play error:', error);
+            searchingMsg.edit('❌ Error playing song. Make sure you have the required packages installed.');
         }
     }
 
+    // Stop command
     if (command === 'stop') {
         const connection = getVoiceConnection(message.guild.id);
         if (connection) {
             connection.destroy();
-            message.reply('⏹️ Stopped');
+            message.reply('⏹️ Stopped playing');
+        } else {
+            message.reply('❌ Not playing anything');
         }
     }
 
+    // Help command
     if (command === 'help') {
         message.reply(`
-**Commands:**
+**Music Bot Commands:**
+!ping - Test if bot works
 !play [song] - Play a song
 !stop - Stop playing
-!ping - Test bot
-!help - Show this
+!help - Show this menu
 
-**Try:** !play shape of you
+**Working songs:**
+• shape of you
+• never gonna give you up
+• despacito
+• believer
+• senorita
         `);
     }
 });

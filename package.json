@@ -1,7 +1,7 @@
 {
   "name": "discord-music-bot",
   "version": "1.0.0",
-  "description": "Discord music bot",
+  "description": "A Discord music bot that plays music from YouTube",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -14,7 +14,7 @@
     "ffmpeg-static": "^5.2.0",
     "ytdl-core": "^4.11.5"
   },
-  "engines": {
-    "node": "18.x"
-  }
+  "keywords": ["discord", "bot", "music", "youtube"],
+  "author": "",
+  "license": "MIT"
 }

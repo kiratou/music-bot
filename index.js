@@ -7,11 +7,6 @@ const ytdl = require('ytdl-core');
 
 const token = process.env.DISCORD_TOKEN;
 
-if (!token) {
-    console.log("❌ No token!");
-    process.exit(1);
-}
-
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -28,12 +23,15 @@ const songs = {
     "shape of you": "JGwWNGJdvx8",
     "never gonna give you up": "dQw4w9WgXcQ",
     "despacito": "kJQP7kiw5Fk",
-    "believer": "7wtfhZwyrcc"
+    "believer": "7wtfhZwyrcc",
+    "senorita": "Pkh8UtuejGw",
+    "bad guy": "DyDfgMOUjCI",
+    "old town road": "r7qovpFAGrQ",
+    "dance monkey": "ij0vNvYc6-w"
 };
 
 client.on('ready', () => {
     console.log('✅ Bot is online!');
-    console.log(`Logged in as: ${client.user.tag}`);
     client.user.setActivity('!play [song]', { type: 'LISTENING' });
 });
 
@@ -59,6 +57,36 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ Type a song name!');
         }
 
+        // Check if it's a URL
+        if (songName.includes('youtube.com') || songName.includes('youtu.be')) {
+            try {
+                const songInfo = await ytdl.getInfo(songName);
+                const song = {
+                    title: songInfo.videoDetails.title,
+                    url: songName
+                };
+                
+                const connection = joinVoiceChannel({
+                    channelId: voiceChannel.id,
+                    guildId: message.guild.id,
+                    adapterCreator: message.guild.voiceAdapterCreator,
+                });
+
+                const player = createAudioPlayer();
+                const stream = ytdl(song.url, { filter: 'audioonly' });
+                const resource = createAudioResource(stream);
+                
+                player.play(resource);
+                connection.subscribe(player);
+
+                message.reply(`🎵 Playing: **${song.title}**`);
+                return;
+            } catch {
+                return message.reply('❌ Invalid URL');
+            }
+        }
+
+        // Search in database
         const videoId = songs[songName];
         
         if (videoId) {
@@ -104,6 +132,18 @@ client.on('messageCreate', async (message) => {
             connection.destroy();
             message.reply('⏹️ Stopped');
         }
+    }
+
+    if (command === 'help') {
+        message.reply(`
+**Commands:**
+!play [song] - Play a song
+!stop - Stop playing
+!ping - Test bot
+!help - Show this
+
+**Try:** !play shape of you
+        `);
     }
 });
 

@@ -1,35 +1,35 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits } = require('discord.js');
+console.log("Starting bot...");
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
-});
-
-client.once('ready', () => {
-    console.log('✅ Bot is online!');
-    console.log(`Logged in as ${client.user.tag}`);
-});
-
-client.on('messageCreate', (message) => {
-    if (message.author.bot) return;
+try {
+    const token = process.env.DISCORD_TOKEN;
     
-    if (message.content === '!ping') {
-        message.reply('Pong! 🏓');
+    if (!token) {
+        console.log("ERROR: No DISCORD_TOKEN found in environment variables!");
+        console.log("Go to Railway → Variables → Add DISCORD_TOKEN");
+        process.exit(1);
     }
     
-    if (message.content === '!hello') {
-        message.reply(`Hello ${message.author.username}!`);
-    }
-});
-
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-    console.log('❌ No token found! Add DISCORD_TOKEN in Railway variables');
-    process.exit(1);
+    console.log("Token found, length:", token.length);
+    console.log("Attempting to login...");
+    
+    const { Client, GatewayIntentBits } = require('discord.js');
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    
+    client.once('ready', () => {
+        console.log("✅ SUCCESS! Bot is online!");
+        console.log(`Bot username: ${client.user.tag}`);
+    });
+    
+    client.on('error', (error) => {
+        console.log("❌ Client error:", error.message);
+    });
+    
+    client.login(token).then(() => {
+        console.log("Login function completed successfully");
+    }).catch(error => {
+        console.log("❌ Login failed:", error.message);
+    });
+    
+} catch (error) {
+    console.log("❌ Critical error:", error.message);
 }
-
-client.login(token);

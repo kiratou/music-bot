@@ -1,21 +1,12 @@
 {
   "name": "discord-music-bot",
   "version": "1.0.0",
-  "description": "A Discord music bot that plays music from YouTube",
-  "main": "index.js",
+  "description": "Discord bot test",
+  "main": "test.js",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "npm install @discordjs/opus --unsafe-perm=true"
+    "start": "node test.js"
   },
   "dependencies": {
-    "@discordjs/opus": "^0.9.0",
-    "@discordjs/voice": "^0.16.1",
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1",
-    "ffmpeg-static": "^5.2.0",
-    "ytdl-core": "^4.11.5"
-  },
-  "keywords": ["discord", "bot", "music", "youtube"],
-  "author": "",
-  "license": "MIT"
+    "dotenv": "^16.3.1"
+  }
 }

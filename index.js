@@ -4,32 +4,12 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
-const SpotifyWebApi = require('spotify-web-api-node');
 
 const token = process.env.DISCORD_TOKEN;
-const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
-const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
 if (!token) {
     console.log("❌ No Discord token found!");
     process.exit(1);
-}
-
-// Initialize Spotify API if credentials exist
-let spotifyApi = null;
-if (spotifyClientId && spotifyClientSecret) {
-    spotifyApi = new SpotifyWebApi({
-        clientId: spotifyClientId,
-        clientSecret: spotifyClientSecret
-    });
-    
-    // Get Spotify access token
-    spotifyApi.clientCredentialsGrant()
-        .then(data => {
-            spotifyApi.setAccessToken(data.body['access_token']);
-            console.log('✅ Spotify API connected');
-        })
-        .catch(err => console.log('⚠️ Spotify API not available, using YouTube only'));
 }
 
 const client = new Client({
@@ -43,54 +23,32 @@ const client = new Client({
 
 const queue = new Map();
 
-// Search YouTube and get video
-async function searchYouTube(query) {
-    try {
-        // Use YouTube search and get first result
-        const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-        
-        // For now, we need to get the actual video URL
-        // This is a simplified version - we'll use a known working method
-        const videoId = await getVideoIdFromSearch(query);
-        if (videoId) {
-            return `https://www.youtube.com/watch?v=${videoId}`;
-        }
-        return null;
-    } catch (error) {
-        console.error("YouTube search error:", error);
-        return null;
-    }
-}
-
-// Helper function to get video ID (simplified)
-async function getVideoIdFromSearch(query) {
-    try {
-        // Use ytdl to search
-        const results = await ytdl.search(query, { limit: 1 });
-        if (results && results.length > 0) {
-            return results[0].videoId;
-        }
-        return null;
-    } catch {
-        // Fallback to common songs
-        const commonSongs = {
-            'shape of you': 'JGwWNGJdvx8',
-            'never gonna give you up': 'dQw4w9WgXcQ',
-            'let the world burn': 'rEelLqbQHCM',
-            'despacito': 'kJQP7kiw5Fk',
-            'believer': '7wtfhZwyrcc',
-            'senorita': 'Pkh8UtuejGw'
-        };
-        
-        // Check if it's a common song
-        for (const [key, value] of Object.entries(commonSongs)) {
-            if (query.toLowerCase().includes(key)) {
-                return value;
-            }
-        }
-        return 'dQw4w9WgXcQ'; // Rick Roll as last resort
-    }
-}
+// DATABASE OF COMMON SONGS (PRE-TESTED WORKING URLs)
+const songDatabase = {
+    "shape of you": "https://www.youtube.com/watch?v=JGwWNGJdvx8",
+    "never gonna give you up": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "let the world burn": "https://www.youtube.com/watch?v=rEelLqbQHCM",
+    "despacito": "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+    "believer": "https://www.youtube.com/watch?v=7wtfhZwyrcc",
+    "senorita": "https://www.youtube.com/watch?v=Pkh8UtuejGw",
+    "bad guy": "https://www.youtube.com/watch?v=DyDfgMOUjCI",
+    "old town road": "https://www.youtube.com/watch?v=r7qovpFAGrQ",
+    "dance monkey": "https://www.youtube.com/watch?v=ij0vNvYc6-w",
+    "someone like you": "https://www.youtube.com/watch?v=hLQl3WQQoQ0",
+    "hello": "https://www.youtube.com/watch?v=YQHsXMglC9A",
+    "rolling in the deep": "https://www.youtube.com/watch?v=rYEDA3JcQqw",
+    "uptown funk": "https://www.youtube.com/watch?v=OPf0YbXqDm0",
+    "see you again": "https://www.youtube.com/watch?v=RgKAFK5djSk",
+    "closer": "https://www.youtube.com/watch?v=PT2_F-1esPk",
+    "love yourself": "https://www.youtube.com/watch?v=oyEuk8j8imI",
+    "sorry": "https://www.youtube.com/watch?v=fRh_vgS2dFE",
+    "what do you mean": "https://www.youtube.com/watch?v=DK_0jXPuIr0",
+    "starboy": "https://www.youtube.com/watch?v=34Na4j8AVgA",
+    "the hills": "https://www.youtube.com/watch?v=yzTuBuRdAyA",
+    "can't feel my face": "https://www.youtube.com/watch?v=qsI5Lkfc4_4",
+    "earfquake": "https://www.youtube.com/watch?v=B6Sg77-M4v0",
+    "godzilla": "https://www.youtube.com/watch?v=CKj1dwIxIlY"
+};
 
 client.once('ready', () => {
     console.log('✅ Bot is online!');
@@ -111,99 +69,67 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ You need to be in a voice channel!');
         }
 
-        const songName = args.join(' ');
+        const songName = args.join(' ').toLowerCase();
         if (!songName) {
             return message.reply('❌ Please provide a song name!');
         }
 
-        const searchingMsg = await message.reply(`🔍 Searching for "${songName}"...`);
-
-        try {
-            let videoUrl;
-            let songTitle = songName;
-
-            // Try Spotify first if available
-            if (spotifyApi) {
-                try {
-                    const result = await spotifyApi.searchTracks(songName, { limit: 1 });
-                    if (result.body.tracks.items.length > 0) {
-                        const track = result.body.tracks.items[0];
-                        songTitle = `${track.artists[0].name} - ${track.name}`;
-                        searchingMsg.edit(`🎵 Found on Spotify: **${songTitle}**\n🔍 Searching YouTube...`);
-                    }
-                } catch (e) {
-                    console.log("Spotify search failed, using YouTube only");
-                }
-            }
-
-            // Search YouTube
-            const searchQuery = songTitle;
-            
-            // Get video ID (using common songs for now)
-            const videoId = await getVideoIdFromSearch(searchQuery);
-            videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-            // Get video info
-            const songInfo = await ytdl.getInfo(videoUrl);
-            const song = {
-                title: songInfo.videoDetails.title,
-                url: videoUrl
-            };
-
-            const serverQueue = queue.get(message.guild.id);
-            
-            if (!serverQueue) {
-                const queueConstruct = {
-                    textChannel: message.channel,
-                    voiceChannel: voiceChannel,
-                    connection: null,
-                    player: createAudioPlayer(),
-                    songs: [],
-                };
-
-                queue.set(message.guild.id, queueConstruct);
-                queueConstruct.songs.push(song);
-
-                try {
-                    const connection = joinVoiceChannel({
-                        channelId: voiceChannel.id,
-                        guildId: message.guild.id,
-                        adapterCreator: message.guild.voiceAdapterCreator,
-                    });
-                    
-                    queueConstruct.connection = connection;
-                    
-                    setTimeout(() => {
-                        playSong(message.guild.id, queueConstruct.songs[0]);
-                    }, 1000);
-                    
-                    searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
-                } catch (err) {
-                    console.error("Connection error:", err);
-                    queue.delete(message.guild.id);
-                    return searchingMsg.edit('❌ Error joining voice channel!');
-                }
-            } else {
-                serverQueue.songs.push(song);
-                return searchingMsg.edit(`✅ **${song.title}** added to queue!`);
-            }
-        } catch (error) {
-            console.error("Play error:", error);
-            searchingMsg.edit('❌ Error playing song! Trying YouTube directly...');
-            
-            // Fallback to direct YouTube search
+        // Check if it's already a URL
+        if (songName.includes('youtube.com') || songName.includes('youtu.be')) {
+            // Handle URL directly
             try {
-                const videoId = await getVideoIdFromSearch(songName);
-                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-                const songInfo = await ytdl.getInfo(videoUrl);
-                
-                message.reply(`🎵 Playing: **${songInfo.videoDetails.title}**`);
-                
-                // Add to queue and play...
-                // (simplified for now)
-            } catch (e) {
-                message.reply('❌ Could not play the song. Try using a YouTube URL directly.');
+                const songInfo = await ytdl.getInfo(songName);
+                const song = {
+                    title: songInfo.videoDetails.title,
+                    url: songName
+                };
+                await playSong(message, song, voiceChannel);
+            } catch (error) {
+                message.reply('❌ Invalid YouTube URL');
             }
+            return;
+        }
+
+        // Check database for the song
+        let foundUrl = null;
+        let foundTitle = songName;
+
+        // Look for exact match or partial match
+        for (const [key, url] of Object.entries(songDatabase)) {
+            if (songName.includes(key) || key.includes(songName)) {
+                foundUrl = url;
+                foundTitle = key;
+                break;
+            }
+        }
+
+        if (foundUrl) {
+            // Found in database
+            const searchingMsg = await message.reply(`🎵 Found: **${foundTitle}**\n🔍 Preparing to play...`);
+            
+            try {
+                const songInfo = await ytdl.getInfo(foundUrl);
+                const song = {
+                    title: songInfo.videoDetails.title,
+                    url: foundUrl
+                };
+                await playSong(message, song, voiceChannel);
+                searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
+            } catch (error) {
+                searchingMsg.edit('❌ Error playing the song. Trying another source...');
+                
+                // Try with a direct search as fallback
+                try {
+                    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(songName)}`;
+                    message.reply(`⚠️ Please use this link: ${searchUrl}\nThen use !play with the URL`);
+                } catch (e) {
+                    message.reply('❌ Could not play the song');
+                }
+            }
+        } else {
+            // Not in database, give search link
+            const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(songName)}`;
+            message.reply(`🔍 Couldn't find "${songName}" in my database.\n🔗 Search here: ${searchUrl}\nThen use **!play [YouTube URL]**`);
         }
     }
 
@@ -226,31 +152,84 @@ client.on('messageCreate', async (message) => {
         message.reply('⏹️ Stopped and left!');
     }
 
+    if (command === 'queue') {
+        const serverQueue = queue.get(message.guild.id);
+        if (!serverQueue || serverQueue.songs.length === 0) {
+            return message.reply('❌ Queue is empty!');
+        }
+
+        let queueList = '**Queue:**\n';
+        serverQueue.songs.forEach((song, index) => {
+            queueList += `${index + 1}. ${song.title}\n`;
+        });
+        message.reply(queueList);
+    }
+
     if (command === 'help') {
         message.reply(`
 **Music Bot Commands:**
 !play [song name] - Play a song
+!play [YouTube URL] - Play from URL
 !skip - Skip current song
 !stop - Stop and leave
+!queue - Show queue
 !help - Show this message
 
-Examples:
-!play shape of you
-!play never gonna give you up
-!play despacito
+**Popular songs in database:**
+${Object.keys(songDatabase).slice(0, 10).map(s => `• ${s}`).join('\n')}
         `);
     }
 });
 
-async function playSong(guildId, song) {
+async function playSong(message, song, voiceChannel) {
+    const serverQueue = queue.get(message.guild.id);
+    
+    if (!serverQueue) {
+        const queueConstruct = {
+            textChannel: message.channel,
+            voiceChannel: voiceChannel,
+            connection: null,
+            player: createAudioPlayer(),
+            songs: [],
+        };
+
+        queue.set(message.guild.id, queueConstruct);
+        queueConstruct.songs.push(song);
+
+        try {
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: message.guild.id,
+                adapterCreator: message.guild.voiceAdapterCreator,
+            });
+            
+            queueConstruct.connection = connection;
+            
+            setTimeout(() => {
+                playNext(message.guild.id);
+            }, 1000);
+            
+        } catch (err) {
+            console.error("Connection error:", err);
+            queue.delete(message.guild.id);
+            throw err;
+        }
+    } else {
+        serverQueue.songs.push(song);
+    }
+}
+
+async function playNext(guildId) {
     const serverQueue = queue.get(guildId);
-    if (!song) {
+    if (!serverQueue || serverQueue.songs.length === 0) {
         if (serverQueue && serverQueue.connection) {
             serverQueue.connection.destroy();
         }
         queue.delete(guildId);
         return;
     }
+
+    const song = serverQueue.songs[0];
 
     try {
         const stream = ytdl(song.url, {
@@ -266,19 +245,19 @@ async function playSong(guildId, song) {
         
         serverQueue.player.on(AudioPlayerStatus.Idle, () => {
             serverQueue.songs.shift();
-            playSong(guildId, serverQueue.songs[0]);
+            playNext(guildId);
         });
 
-        serverQueue.player.on('error', error => {
+        serverQueue.player.on('error', (error) => {
             console.error("Player error:", error);
             serverQueue.songs.shift();
-            playSong(guildId, serverQueue.songs[0]);
+            playNext(guildId);
         });
 
     } catch (error) {
-        console.error("PlaySong error:", error);
+        console.error("Play error:", error);
         serverQueue.songs.shift();
-        playSong(guildId, serverQueue.songs[0]);
+        playNext(guildId);
     }
 }
 

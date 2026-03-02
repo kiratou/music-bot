@@ -12,6 +12,7 @@
     "dotenv": "^16.3.1",
     "ffmpeg-static": "^5.2.0",
     "ytdl-core": "^4.11.5",
-    "yt-search": "^2.10.3"
+    "spotify-web-api-node": "^5.0.2",
+    "axios": "^1.6.2"
   }
 }

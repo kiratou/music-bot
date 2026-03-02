@@ -1,4 +1,4 @@
-console.log("🚀 Starting Music Bot...");
+console.log("🚀 Starting Music Bot with YouTube Search...");
 
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
@@ -6,8 +6,15 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerSta
 const ytdl = require('ytdl-core');
 
 const token = process.env.DISCORD_TOKEN;
+const youtubeKey = process.env.YOUTUBE_API_KEY;
+
 if (!token) {
     console.log("❌ No Discord token found!");
+    process.exit(1);
+}
+
+if (!youtubeKey) {
+    console.log("❌ No YouTube API key found!");
     process.exit(1);
 }
 
@@ -22,10 +29,29 @@ const client = new Client({
 
 const queue = new Map();
 
+// Function to search YouTube using API
+async function searchYouTube(query) {
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(query)}&key=${youtubeKey}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.items && data.items.length > 0) {
+            const videoId = data.items[0].id.videoId;
+            return `https://www.youtube.com/watch?v=${videoId}`;
+        }
+        return null;
+    } catch (error) {
+        console.error("YouTube search error:", error);
+        return null;
+    }
+}
+
 client.once('ready', () => {
     console.log('✅ Bot is online!');
     console.log(`Logged in as: ${client.user.tag}`);
-    client.user.setActivity('!play [song]', { type: 'LISTENING' });
+    client.user.setActivity('!play [song name]', { type: 'LISTENING' });
 });
 
 client.on('messageCreate', async (message) => {
@@ -44,14 +70,32 @@ client.on('messageCreate', async (message) => {
 
         const songName = args.join(' ');
         if (!songName) {
-            return message.reply('❌ Please provide a song name or URL!');
+            return message.reply('❌ Please provide a song name!');
         }
 
+        // Show searching message
+        const searchingMsg = await message.reply(`🔍 Searching for "${songName}"...`);
+
         try {
-            const songInfo = await ytdl.getInfo(songName);
+            // Search for the video
+            let videoUrl;
+            
+            // Check if it's already a URL
+            if (songName.includes('youtube.com') || songName.includes('youtu.be')) {
+                videoUrl = songName;
+            } else {
+                // Search using YouTube API
+                videoUrl = await searchYouTube(songName);
+                if (!videoUrl) {
+                    return searchingMsg.edit('❌ No results found!');
+                }
+            }
+
+            // Get video info
+            const songInfo = await ytdl.getInfo(videoUrl);
             const song = {
                 title: songInfo.videoDetails.title,
-                url: songInfo.videoDetails.video_url
+                url: videoUrl
             };
 
             const serverQueue = queue.get(message.guild.id);
@@ -78,17 +122,18 @@ client.on('messageCreate', async (message) => {
                     queueConstruct.connection = connection;
                     playSong(message.guild.id, queueConstruct.songs[0]);
                     
-                    message.reply(`🎵 Playing: **${song.title}**`);
+                    searchingMsg.edit(`🎵 Now playing: **${song.title}**`);
                 } catch (err) {
                     queue.delete(message.guild.id);
-                    return message.reply('❌ Error joining voice channel!');
+                    return searchingMsg.edit('❌ Error joining voice channel!');
                 }
             } else {
                 serverQueue.songs.push(song);
-                return message.reply(`✅ **${song.title}** added to queue!`);
+                return searchingMsg.edit(`✅ **${song.title}** added to queue!`);
             }
         } catch (error) {
-            message.reply('❌ Error playing song! Make sure it\'s a valid YouTube URL');
+            console.error(error);
+            message.reply('❌ Error playing song! Try again.');
         }
     }
 
@@ -129,11 +174,16 @@ client.on('messageCreate', async (message) => {
     if (command === 'help') {
         message.reply(`
 **Music Bot Commands:**
-!play [song] - Play a song
+!play [song name] - Play a song (just type the name!)
 !skip - Skip current song
 !stop - Stop and leave
 !queue - Show queue
 !help - Show this message
+
+Examples:
+!play shape of you
+!play never gonna give you up
+!play https://youtu.be/... (URLs also work)
         `);
     }
 });
